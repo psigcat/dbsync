@@ -59,6 +59,16 @@ ALTER TABLE "var"."scada_1" ADD FOREIGN KEY ("sensor_id") REFERENCES "var"."sens
 
 ALTER TABLE "var"."scada_n" ADD FOREIGN KEY ("sensor_id") REFERENCES "var"."sensor" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+ALTER TABLE "var"."sensor" ADD FOREIGN KEY ("scada_id") REFERENCES "var"."scada" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Current Data test is from scada_id = 1
-UPDATE sensor SET scada_id = 1;
+
+-- 20151119
+ALTER TABLE "var"."scada_1" ADD COLUMN "tstamp" timestamp DEFAULT now();
+ALTER TABLE "var"."scada_n" ADD COLUMN "tstamp" timestamp DEFAULT now();
+CREATE INDEX  ON "var"."scada_1" ("sensor_id");
+
+
+
+
+
+

@@ -25,12 +25,12 @@ def main():
         return
     if not connect_databases():
         return
-    set_task(False)
+    set_task()
 
 
 def config_ini():
     
-    global settings 
+    global settings, scada_id, interval, sleep
     
     # Load local settings of the plugin
     cur_dir = os.path.dirname(__file__)
@@ -41,15 +41,29 @@ def config_ini():
              
     settings = ConfigParser.ConfigParser()
     settings.read(setting_file)
+    scada_id = settings.get('main', 'scada_id')    
+    interval = settings.get('main', 'interval')    
+    sleep = settings.get('main', 'sleep')    
+    if not isNumber(scada_id):
+        print "Parameter 'scada_id' must be numeric. Please check file dbsync.config"
+        return False    
+    if not isNumber(interval):
+        print "Parameter 'interval' must be numeric. Please check file dbsync.config"
+        return False
+    if not isNumber(sleep):
+        print "Parameter 'sleep' must be numeric. Please check file dbsync.config"
+        return False
+    interval = float(interval)
+    sleep = int(sleep)
+    
     return True
     
     
 def connect_databases():
 
-    global db_from, db_dest, scada_id
+    global db_from, db_dest
 
     # Connect to local Database
-    scada_id = settings.get('main', 'scada_id')
     host = settings.get('main', 'host')
     port = settings.get('main', 'port')
     db = settings.get('main', 'db')
@@ -78,12 +92,17 @@ def set_task(threading = True):
 
     task = db_task.DbTask()
     task.set_scada_id(scada_id)
+    task.set_interval(interval)
+    task.set_sleep(sleep)
     task.set_db_from(db_from)
     task.set_db_to(db_dest)
+    
     if threading:
+        task.truncate_log_detail()
         task.copy_data()
+#         task.copy_data_sensor(8)
     else:
-        task.job_copy_data()
+        task.job_copy_data()                    
         
 
 if __name__ == '__main__':
