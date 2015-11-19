@@ -1,3 +1,14 @@
+# Eclipse
+.project
+.pydevproject
+.settings/
+*.psproj
+
+# Project
+dbsync.config
+sql/test_data/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
