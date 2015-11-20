@@ -1,9 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
-from PyQt4.QtSql import *     # @UnusedWildImport
-import sys
 import os.path
 import ConfigParser
 
+import sys
 if 'db_task' in sys.modules:
     del sys.modules["db_task"]
 if 'utils' in sys.modules:
@@ -26,17 +25,25 @@ def main():
     if not connect_databases():
         return
     set_task()
+    
+    logging.info('App finished')    
 
 
 def config_ini():
     
-    global settings, scada_id, interval, sleep
+    global logger, settings, scada_id, interval, sleep, default_start_tstamp
     
+    # Set daily log file
+    app_name = 'dbsync'
+    set_logging('log', app_name)
+    logger = logging.getLogger(app_name)
+    logger.info('App started')
+
     # Load local settings of the plugin
     cur_dir = os.path.dirname(__file__)
-    setting_file = os.path.join(cur_dir, 'config', 'dbsync.config')
+    setting_file = os.path.join(cur_dir, 'config', app_name+'.config')
     if not os.path.isfile(setting_file):
-        print "Config file not found at: "+setting_file
+        logger.warning("Config file not found at: "+setting_file)
         return False
              
     settings = ConfigParser.ConfigParser()
@@ -44,17 +51,22 @@ def config_ini():
     scada_id = settings.get('main', 'scada_id')    
     interval = settings.get('main', 'interval')    
     sleep = settings.get('main', 'sleep')    
+    default_start_tstamp = settings.get('main', 'default_start_tstamp')    
     if not isNumber(scada_id):
-        print "Parameter 'scada_id' must be numeric. Please check file dbsync.config"
+        logger.warning("Parameter 'scada_id' must be numeric. Please check file dbsync.config")
         return False    
     if not isNumber(interval):
-        print "Parameter 'interval' must be numeric. Please check file dbsync.config"
+        logger.warning("Parameter 'interval' must be numeric. Please check file dbsync.config")
         return False
     if not isNumber(sleep):
-        print "Parameter 'sleep' must be numeric. Please check file dbsync.config"
+        logger.warning("Parameter 'sleep' must be numeric. Please check file dbsync.config")
+        return False
+    if not isNumber(default_start_tstamp):
+        logging.warning("Parameter 'default_start_tstamp' must be numeric. Please check file dbsync.config")
         return False
     interval = float(interval)
     sleep = int(sleep)
+    default_start_tstamp = int(default_start_tstamp)
     
     return True
     
@@ -93,14 +105,13 @@ def set_task(threading = True):
     task = db_task.DbTask()
     task.set_scada_id(scada_id)
     task.set_interval(interval)
+    task.set_default_start_tstamp(default_start_tstamp)
     task.set_sleep(sleep)
     task.set_db_from(db_from)
     task.set_db_to(db_dest)
     
     if threading:
-        task.truncate_log_detail()
-        task.copy_data()
-#         task.copy_data_sensor(8)
+        task.copy_data(truncate_log=True)
     else:
         task.job_copy_data()                    
         

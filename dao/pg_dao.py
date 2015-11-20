@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt4.QtCore import * #@UnusedWildImport
-from PyQt4.QtGui import * #@UnusedWildImport
-from PyQt4.QtSql import * #@UnusedWildImport
-
+import logging
 import psycopg2
 import psycopg2.extras
 
@@ -10,7 +7,7 @@ import psycopg2.extras
 class PgDao():
 
     def __init__(self):
-        pass
+        self.logger = logging.getLogger('dbsync')  
 
     def get_host(self):
         return self.host
@@ -21,7 +18,7 @@ class PgDao():
             self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             status = True
         except psycopg2.DatabaseError, e:
-            print 'Error %s' % e
+            self.logger.warning('Error %s' % e)
             status = False
         return status
 

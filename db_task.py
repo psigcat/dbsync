@@ -1,21 +1,29 @@
-﻿import sys
+﻿import time
+import schedule
+import logging
+
+import sys
 if 'utils' in sys.modules:
     del sys.modules["utils"]
 if 'threading' in sys.modules:
     del sys.modules["threading"]
-from utils import xstr
+from utils import *  # @UnusedWildImport
 import threading
-import time
-import schedule
 
 
 class DbTask():
 
+    def __init__(self):
+        self.logger = logging.getLogger('dbsync')  
+        
     def set_scada_id(self, scada_id):
         self.scada_id = scada_id
         
     def set_interval(self, interval):
         self.interval = interval
+        
+    def set_default_start_tstamp(self, default_start_tstamp):
+        self.default_start_tstamp = default_start_tstamp
         
     def set_sleep(self, sleep):
         self.sleep = sleep
@@ -39,23 +47,30 @@ class DbTask():
         row = self.db_to.get_row(sql)
         result = row[0]
         if result is None:
-            result = -1
+            result = self.default_start_tstamp
         return str(result)
                 
         
     def job_copy_data(self, sensor_id):
 
-        print "\n"+str(time.strftime('%x %X'))+" [job_copy_data] Start  Sensor: "+str(sensor_id)+" "+str(threading.current_thread())
+        self.logger.info("{job_copy_data} Start  Sensor: "+str(sensor_id)+" "+str(threading.current_thread()))
  
         # Get id of the last record inserted
         previous_data = self.get_last_row(self.scada_id, sensor_id)
         
+        # Check if the sensor table exists in the origin Database
+        schema_from = "dbo"
+        table_from = "LineStep_"+str(sensor_id)
+        exists = self.db_from.check_table(schema_from, table_from)
+        if not exists:
+            self.logger.info("{job_copy_data} Sensor table not found: "+schema_from+"."+table_from)          
+            return
+        
         # SQL to retrieve data
-        table_from = "dbo.LineStep_"+str(sensor_id)
-        sql = "SELECT LStepDate, LStepValue FROM "+table_from+" WHERE LStepDate > "+str(previous_data)+" ORDER BY LStepDate"
+        sql = "SELECT LStepDate, LStepValue FROM "+schema_from+"."+table_from+" WHERE LStepDate > "+str(previous_data)+" ORDER BY LStepDate"
         rows = self.db_from.query_sql(sql)
         total = len(rows)
-        print "\n"+str(time.strftime('%x %X'))+" [job_copy_data] Records found: "+str(total)  
+        self.logger.info("{job_copy_data} Records found: "+str(total)) 
             
         # If we have found at least one record
         # Define SQL's to Insert data into destination table
@@ -74,6 +89,7 @@ class DbTask():
                 last_date = xstr(row[0])
                                   
             query = ';\n'.join(list_insert)
+            query = query+";"
             self.db_to.execute_sql(query)               
     
             # Insert process info into 'log_detail' table
@@ -85,19 +101,27 @@ class DbTask():
             # Commit all changes
             self.db_to.commit()
             
-        print "\n"+str(time.strftime('%x %X'))+" [job_copy_data] End    Sensor: "+str(sensor_id)           
+        self.logger.info("{job_copy_data} End    Sensor: "+str(sensor_id))          
 
 
-    def copy_data(self, loop=False):
+    def copy_data(self, loop=False, min_id=None, max_id=None, limit=None, truncate_log=False):
 
-        print "\n"+str(time.strftime('%x %X'))+" [copy_data] Start process"      
+        self.logger.info("{copy_data} Start process")     
         
+        if truncate_log:
+            self.truncate_log_detail()
+            
         # Iterate over all sensors
-        sql = "SELECT id FROM var.sensor WHERE scada_id = "+str(self.scada_id)+" ORDER BY id"
-        #sql = sql+" LIMIT "+str(10)
+        sql = "SELECT id FROM var.sensor WHERE scada_id = "+str(self.scada_id)
+        if min_id is not None:
+            sql = sql+" AND id >= "+str(min_id)
+        if max_id is not None:
+            sql = sql+" AND id <= "+str(max_id)
+        sql = sql+" ORDER BY id"
+        if limit is not None:
+            sql = sql+" LIMIT "+str(limit)
         rows = self.db_to.query_sql(sql)
         for row in rows:        
-            #print str(time.strftime('%x %X'))+" - Setting thread to manage sensor "+str(row[0])
             jobObj = schedule.every(self.interval).minutes
             jobObj.do(self.run_threaded, self.job_copy_data, row[0])
             if loop:
@@ -113,7 +137,7 @@ class DbTask():
         else:
             schedule.run_all(self.sleep)
             
-        print str(time.strftime('%x %X'))+" [copy_data] End process\n"              
+        self.logger.info("{copy_data} End process\n")             
 
 
     def copy_data_sensor(self, sensor_id):
@@ -121,8 +145,8 @@ class DbTask():
         # Define a thread to manage this sensor
         jobObj = schedule.every(self.interval).minutes
         jobObj.do(self.run_threaded, self.job_copy_data, sensor_id)
-        schedule.run_all(self.sleep)
-        print str(time.strftime('%x %X'))+" [copy_data_sensor] End process\n"           
+        schedule.run_all(self.sleep)    
+        self.logger.info("{copy_data_sensor} End process\n")          
         
             
     def truncate_log_detail(self):
@@ -132,3 +156,6 @@ class DbTask():
         sql = "DELETE FROM var.scada_1"
         self.db_to.execute_sql(sql)           
         self.db_to.commit()        
+        
+        
+        

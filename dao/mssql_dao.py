@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import logging
 import pymssql
 
 
 class MsSqlDao():
 
     def __init__(self):
-        pass
+        self.logger = logging.getLogger('dbsync')  
 
     def get_host(self):
         return self.host
@@ -17,22 +18,15 @@ class MsSqlDao():
         self.user = user
         self.pwd = pwd   
         
-        
     def init_db(self):
-        self.conn = pymssql.connect(self.host, self.user, self.pwd, self.db)
-        self.cursor = self.conn.cursor()
-        return True
+        try:
+            self.conn = pymssql.connect(self.host, self.user, self.pwd, self.db)
+            self.cursor = self.conn.cursor()
+        except pymssql.OperationalError, e:
+            self.logger.warning('Error %s' % e)
+            return False
+        return True              
 
-
-    def test(self):
-        self.cursor.execute('SELECT TOP 5 * FROM dbo.Line')
-        row = self.cursor.fetchone()
-        while row:
-            #print("ID=%d, Name=%s" % (row[0], row[1]))
-            print row[3]
-            row = self.cursor.fetchone()
-        self.conn.close()        
-        
     def query_sql(self, sql):
         self.cursor.execute(sql)
         rows = self.cursor.fetchall()
@@ -44,4 +38,10 @@ class MsSqlDao():
         return row
 
     def execute_sql(self, sql):
-        self.cursor.execute(sql)        
+        self.cursor.execute(sql)      
+        
+    def check_table(self, schema, table): 
+        sql = "SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '"+schema+"' AND TABLE_NAME = '"+table+"'"      
+        row = self.get_row(sql)  
+        exists = row is not None
+        return exists
