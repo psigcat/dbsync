@@ -18,7 +18,7 @@ class PgDao():
             self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             status = True
         except psycopg2.DatabaseError, e:
-            self.logger.warning('Error %s' % e)
+            self.logger.warning('{pg_dao} Error %s' % e)
             status = False
         return status
 

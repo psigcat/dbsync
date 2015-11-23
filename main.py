@@ -26,7 +26,7 @@ def main():
         return
     set_task()
     
-    logging.info('App finished')    
+    logger.info('App finished')    
 
 
 def config_ini():
@@ -62,7 +62,7 @@ def config_ini():
         logger.warning("Parameter 'sleep' must be numeric. Please check file dbsync.config")
         return False
     if not isNumber(default_start_tstamp):
-        logging.warning("Parameter 'default_start_tstamp' must be numeric. Please check file dbsync.config")
+        logger.warning("Parameter 'default_start_tstamp' must be numeric. Please check file dbsync.config")
         return False
     interval = float(interval)
     sleep = int(sleep)

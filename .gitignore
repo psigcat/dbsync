@@ -3,17 +3,19 @@
 .pydevproject
 .settings/
 *.psproj
-*.log
 
 # Project
 dbsync.config
 sql/test_data/
+*.log
+*test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 
 # Distribution / packaging
+*.spec
 .Python
 env/
 build/

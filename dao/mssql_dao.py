@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
-import lib.pymssql as pymssql
+import _mssql
+import pymssql
 
 
 class MsSqlDao():
@@ -23,7 +24,7 @@ class MsSqlDao():
             self.conn = pymssql.connect(self.host, self.user, self.pwd, self.db)
             self.cursor = self.conn.cursor()
         except pymssql.OperationalError, e:
-            self.logger.warning('Error %s' % e)
+            self.logger.warning('{mssql_dao} Error %s' % e)
             return False
         return True              
 
