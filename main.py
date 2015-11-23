@@ -12,10 +12,10 @@ if 'dao.pg_dao' in sys.modules:
 if 'dao.mssql_dao' in sys.modules:
     del sys.modules["dao.mssql_dao"]
 
-import db_task
-from utils import *  # @UnusedWildImport
 from dao.pg_dao import PgDao
 from dao.mssql_dao import MsSqlDao
+from utils import *  # @UnusedWildImport
+import db_task
 
 
 def main():

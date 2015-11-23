@@ -1,14 +1,9 @@
 ﻿import time
-import schedule
 import logging
-
-import sys
-if 'utils' in sys.modules:
-    del sys.modules["utils"]
-if 'threading' in sys.modules:
-    del sys.modules["threading"]
-from utils import *  # @UnusedWildImport
 import threading
+
+import lib.schedule as schedule
+from utils import *  # @UnusedWildImport
 
 
 class DbTask():

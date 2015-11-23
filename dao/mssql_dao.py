@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-import pymssql
+import lib.pymssql as pymssql
 
 
 class MsSqlDao():
