@@ -37,7 +37,7 @@ class DbTask():
     # Get last row inserted for the selected scada and sensor
     def get_last_row(self, scada, sensor):
         
-        sql = "SELECT MAX(last_date) FROM var.log_detail"
+        sql = "SELECT MAX(last_date) FROM audit.log_detail"
         sql = sql + " WHERE scada_id = "+str(scada)+" AND sensor_id = "+str(sensor)
         row = self.db_to.get_row(sql)
         result = row[0]
@@ -88,7 +88,7 @@ class DbTask():
             self.db_to.execute_sql(query)               
     
             # Insert process info into 'log_detail' table
-            sql = "INSERT INTO var.log_detail (scada_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
+            sql = "INSERT INTO audit.log_detail (scada_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
             log_detail = str(self.scada_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+self.db_from.get_host()+"'"
             sql = sql+log_detail+")"
             self.db_to.execute_sql(sql)                
@@ -146,7 +146,7 @@ class DbTask():
             
     def truncate_log_detail(self):
         
-        sql = "DELETE FROM var.log_detail"
+        sql = "DELETE FROM audit.log_detail"
         self.db_to.execute_sql(sql)   
         sql = "DELETE FROM var.scada_1"
         self.db_to.execute_sql(sql)           

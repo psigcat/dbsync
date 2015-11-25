@@ -1,3 +1,6 @@
+-- Schema creation
+CREATE SCHEMA IF NOT EXISTS "audit";
+
 DROP TABLE IF EXISTS "audit"."log_detail";
 CREATE TABLE "audit"."log_detail" (
 "id" SERIAL,
@@ -7,7 +10,7 @@ CREATE TABLE "audit"."log_detail" (
 "last_date" int8 NOT NULL,
 "rec_number" int4,
 "addr" text,
-"tstamp" timestamptz(6) DEFAULT now() NOT NULL,
+"tstamp" timestamp(6) DEFAULT now() NOT NULL,
 "query" text,
 CONSTRAINT "log_detail_pkey" PRIMARY KEY ("id")
 );

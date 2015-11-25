@@ -1,4 +1,7 @@
-﻿-- We will keep all different scada models
+﻿-- Schema creation
+CREATE SCHEMA IF NOT EXISTS "var";
+
+-- We will keep all different scada models
 DROP TABLE IF EXISTS "var"."scada_model";
 CREATE TABLE "var"."scada_model" (
 "id" int2 NOT NULL,
@@ -66,9 +69,6 @@ ALTER TABLE "var"."sensor" ADD FOREIGN KEY ("scada_id") REFERENCES "var"."scada"
 ALTER TABLE "var"."scada_1" ADD COLUMN "tstamp" timestamp DEFAULT now();
 ALTER TABLE "var"."scada_n" ADD COLUMN "tstamp" timestamp DEFAULT now();
 CREATE INDEX  ON "var"."scada_1" ("sensor_id");
-
-
-
 
 
 
