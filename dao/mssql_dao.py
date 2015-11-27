@@ -26,6 +26,9 @@ class MsSqlDao():
         except pymssql.OperationalError, e:
             self.logger.warning('{mssql_dao} Error %s' % e)
             return False
+        except pymssql.InterfaceError, e:
+            self.logger.warning('{mssql_dao} Error %s' % e)
+            return False
         return True              
 
     def query_sql(self, sql):
@@ -46,3 +49,6 @@ class MsSqlDao():
         row = self.get_row(sql)  
         exists = row is not None
         return exists
+    
+    def close(self):
+        self.conn.close()

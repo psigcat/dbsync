@@ -26,7 +26,7 @@ def main():
         return
     set_task()
     
-    logger.info('App finished')    
+    logger.info('App finished\n')    
 
 
 def config_ini():
@@ -46,7 +46,7 @@ def config_ini():
         logger.warning("Config file not found at: "+setting_file)
         return False
              
-    settings = ConfigParser.ConfigParser()
+    settings = ConfigParser.ConfigParser({'sgbd': 'mssql', 'sgbd_to': 'pgsql'})
     settings.read(setting_file)
     scada_id = settings.get('main', 'scada_id')    
     interval = settings.get('main', 'interval')    
@@ -75,45 +75,51 @@ def connect_databases():
 
     global db_from, db_dest
 
-    # Connect to local Database
+    # DB origin. Connect to local Database (by default MsSQL)
     host = settings.get('main', 'host')
     port = settings.get('main', 'port')
     db = settings.get('main', 'db')
     user = settings.get('main', 'user')
     pwd = settings.get('main', 'pwd')
-    db_from = MsSqlDao()
+    sgbd = settings.get('main', 'sgbd')
+    if sgbd.lower() == 'mssql':
+        db_from = MsSqlDao()
+    else:
+        db_from = PgDao()     
     db_from.set_params(host, port, db, user, pwd)
-    if not db_from.init_db():
-        return False
+    from_ok = db_from.init_db()
 
-    # Connect to remote Database
+    # DB destination. Connect to remote Database (by default PostgreSQL)
     host_to = settings.get('main', 'host_to')
     port_to = settings.get('main', 'port_to')
     db_to = settings.get('main', 'db_to')
     user_to = settings.get('main', 'user_to')
     pwd_to = settings.get('main', 'pwd_to')
-    db_dest = PgDao()
+    sgbd_to = settings.get('main', 'sgbd_to')    
+    if sgbd_to.lower() == 'mssql':
+        db_dest = MsSqlDao()
+    else:
+        db_dest = PgDao()      
     db_dest.set_params(host_to, port_to, db_to, user_to, pwd_to)
-    if not db_dest.init_db():
-        return False
+    dest_ok = db_dest.init_db()
 
-    return True
+    return (from_ok and dest_ok)
 
 
-def set_task(threading = True):
+def set_task():
 
     task = db_task.DbTask()
+    task.set_settings(settings)
+    task.set_db_parameters()
     task.set_scada_id(scada_id)
     task.set_interval(interval)
     task.set_default_start_tstamp(default_start_tstamp)
     task.set_sleep(sleep)
-    task.set_db_from(db_from)
     task.set_db_to(db_dest)
     
-    if threading:
-        task.copy_data(truncate_log=True)
-    else:
-        task.job_copy_data()                    
+    # Execute main task
+    task.copy_data()             
+    #task.copy_data(delete_previous_data=True, min_id=6, max_id=22)             
         
 
 if __name__ == '__main__':

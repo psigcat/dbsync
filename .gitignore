@@ -1,8 +1,10 @@
 # Project
-dbsync.config
+config/*
 sql/test_data/
+*.ndm
 *.log
 *test.py
+*.bat
 
 # Eclipse
 .project
