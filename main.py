@@ -31,7 +31,7 @@ def main():
 
 def config_ini():
     
-    global logger, settings, scada_id, interval, sleep, default_start_tstamp
+    global logger, settings, scada_id, interval, sleep, default_start_tstamp, time_gap
     
     # Set daily log file
     app_name = 'dbsync'
@@ -46,42 +46,52 @@ def config_ini():
         logger.warning("Config file not found at: "+setting_file)
         return False
              
-    settings = ConfigParser.ConfigParser({'sgbd': 'mssql', 'sgbd_to': 'pgsql'})
+    settings = ConfigParser.ConfigParser({'sgbd': 'mssql', 'sgbd_to': 'pgsql', 'time_gap': '-1'})
     settings.read(setting_file)
     scada_id = settings.get('main', 'scada_id')    
     interval = settings.get('main', 'interval')    
     sleep = settings.get('main', 'sleep')    
     default_start_tstamp = settings.get('main', 'default_start_tstamp')    
-    if not isNumber(scada_id):
-        logger.warning("Parameter 'scada_id' must be numeric. Please check file dbsync.config")
+    time_gap = settings.get('main', 'time_gap')    
+    if not check_param_numeric(scada_id):
         return False    
-    if not isNumber(interval):
-        logger.warning("Parameter 'interval' must be numeric. Please check file dbsync.config")
+    if not check_param_numeric(interval):
         return False
-    if not isNumber(sleep):
-        logger.warning("Parameter 'sleep' must be numeric. Please check file dbsync.config")
+    if not check_param_numeric(sleep):
         return False
-    if not isNumber(default_start_tstamp):
-        logger.warning("Parameter 'default_start_tstamp' must be numeric. Please check file dbsync.config")
+    if not check_param_numeric(default_start_tstamp):
         return False
+    if not check_param_numeric(time_gap):
+        return False
+    
     interval = float(interval)
     sleep = int(sleep)
     default_start_tstamp = int(default_start_tstamp)
+    time_gap = int(time_gap)
     
     return True
     
+
+def check_param_numeric(param):  
+    
+    valid = True  
+    if not isNumber(time_gap):
+        logger.warning("Parameter '"+param+"' must be numeric. Please check file dbsync.config")
+        valid = False
+    return valid
+        
     
 def connect_databases():
 
     global db_from, db_dest
 
     # DB origin. Connect to local Database (by default MsSQL)
-    host = settings.get('main', 'host')
-    port = settings.get('main', 'port')
-    db = settings.get('main', 'db')
-    user = settings.get('main', 'user')
-    pwd = settings.get('main', 'pwd')
-    sgbd = settings.get('main', 'sgbd')
+    host = settings.get('database', 'host')
+    port = settings.get('database', 'port')
+    db = settings.get('database', 'db')
+    user = settings.get('database', 'user')
+    pwd = settings.get('database', 'pwd')
+    sgbd = settings.get('database', 'sgbd')
     if sgbd.lower() == 'mssql':
         db_from = MsSqlDao()
     else:
@@ -90,12 +100,12 @@ def connect_databases():
     from_ok = db_from.init_db()
 
     # DB destination. Connect to remote Database (by default PostgreSQL)
-    host_to = settings.get('main', 'host_to')
-    port_to = settings.get('main', 'port_to')
-    db_to = settings.get('main', 'db_to')
-    user_to = settings.get('main', 'user_to')
-    pwd_to = settings.get('main', 'pwd_to')
-    sgbd_to = settings.get('main', 'sgbd_to')    
+    host_to = settings.get('database', 'host_to')
+    port_to = settings.get('database', 'port_to')
+    db_to = settings.get('database', 'db_to')
+    user_to = settings.get('database', 'user_to')
+    pwd_to = settings.get('database', 'pwd_to')
+    sgbd_to = settings.get('database', 'sgbd_to')    
     if sgbd_to.lower() == 'mssql':
         db_dest = MsSqlDao()
     else:
@@ -111,15 +121,11 @@ def set_task():
     task = db_task.DbTask()
     task.set_settings(settings)
     task.set_db_parameters()
-    task.set_scada_id(scada_id)
-    task.set_interval(interval)
-    task.set_default_start_tstamp(default_start_tstamp)
-    task.set_sleep(sleep)
+    task.set_params(scada_id, interval, sleep, default_start_tstamp, time_gap)
     task.set_db_to(db_dest)
     
     # Execute main task
-    task.copy_data()             
-    #task.copy_data(delete_previous_data=True, min_id=6, max_id=22)             
+    task.copy_data()              
         
 
 if __name__ == '__main__':

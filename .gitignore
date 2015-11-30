@@ -1,5 +1,5 @@
 # Project
-config/*
+config/dbsync*
 sql/test_data/
 *.ndm
 *.log
