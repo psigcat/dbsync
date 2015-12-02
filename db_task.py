@@ -16,31 +16,16 @@ class DbTask():
         self.logger = logging.getLogger('dbsync') 
         self.sensor_dates = {} 
         self.exists = False
-        
-    def set_settings(self, settings):
-        self.settings = settings
     
-    def set_db_parameters(self):
-        self.host = self.settings.get('main', 'host')
-        self.port = self.settings.get('main', 'port')
-        self.db = self.settings.get('main', 'db')
-        self.user = self.settings.get('main', 'user')
-        self.pwd = self.settings.get('main', 'pwd')
-        self.sgbd = self.settings.get('main', 'sgbd')
+    def set_database_params(self, host, port, db, user, pwd, sgbd):
+        self.host = host
+        self.port = port
+        self.db = db
+        self.user =user
+        self.pwd = pwd
+        self.sgbd = sgbd
         
-    def set_scada_id(self, scada_id):
-        self.scada_id = scada_id
-        
-    def set_interval(self, interval):
-        self.interval = interval
-        
-    def set_default_start_tstamp(self, default_start_tstamp):
-        self.default_start_tstamp = default_start_tstamp
-        
-    def set_sleep(self, sleep):
-        self.sleep = sleep
-        
-    def set_params(self, scada_id, interval, sleep, default_start_tstamp, time_gap):
+    def set_main_params(self, scada_id, interval, sleep, default_start_tstamp, time_gap):
         self.scada_id = scada_id
         self.interval = interval
         self.sleep = sleep
@@ -177,7 +162,10 @@ class DbTask():
         
         # SQL to retrieve data
         sql = "SELECT date, value FROM "+schema_from+"."+table_from+\
-            " WHERE numericInformation_id = "+str(sensor_id)+" AND date > '"+str(previous_date)+"' ORDER BY date"                  
+            " WHERE numericInformation_id = "+str(sensor_id)+" AND date > '"+str(previous_date)+"'"
+        if self.time_gap != -1:
+            sql = sql + " AND DATEPART(hour, date) % "+str(self.time_gap)+" = 0 AND DATEPART(minute, date) = '00'" 
+        sql = sql + " ORDER BY date"                  
         rows = db_from.query_sql(sql)
         total = len(rows)
         self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Records found: "+str(total)) 

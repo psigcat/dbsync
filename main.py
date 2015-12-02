@@ -83,7 +83,7 @@ def check_param_numeric(param):
     
 def connect_databases():
 
-    global db_from, db_dest
+    global db_from, db_dest, host, port, db, user, pwd, sgbd
 
     # DB origin. Connect to local Database (by default MsSQL)
     host = settings.get('database', 'host')
@@ -119,9 +119,8 @@ def connect_databases():
 def set_task():
 
     task = db_task.DbTask()
-    task.set_settings(settings)
-    task.set_db_parameters()
-    task.set_params(scada_id, interval, sleep, default_start_tstamp, time_gap)
+    task.set_database_params(host, port, db, user, pwd, sgbd)
+    task.set_main_params(scada_id, interval, sleep, default_start_tstamp, time_gap)
     task.set_db_to(db_dest)
     
     # Execute main task
