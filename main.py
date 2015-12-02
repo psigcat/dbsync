@@ -46,28 +46,35 @@ def config_ini():
         logger.warning("Config file not found at: "+setting_file)
         return False
              
-    settings = ConfigParser.ConfigParser({'sgbd': 'mssql', 'sgbd_to': 'pgsql', 'time_gap': '-1'})
+    default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql', 'time_gap': '-1'}             
+    settings = ConfigParser.ConfigParser(default_values)
     settings.read(setting_file)
-    service_id = settings.get('main', 'service_id')    
-    interval = settings.get('main', 'interval')    
-    sleep = settings.get('main', 'sleep')    
-    default_start_tstamp = settings.get('main', 'default_start_tstamp')    
-    time_gap = settings.get('main', 'time_gap')    
-    if not check_param_numeric(service_id):
-        return False    
-    if not check_param_numeric(interval):
+    try:
+        service_id = settings.get('main', 'service_id')    
+        interval = settings.get('main', 'interval')    
+        sleep = settings.get('main', 'sleep')    
+        default_start_tstamp = settings.get('main', 'default_start_tstamp')    
+        time_gap = settings.get('main', 'time_gap')    
+        if not check_param_numeric(service_id):
+            return False    
+        if not check_param_numeric(interval):
+            return False
+        if not check_param_numeric(sleep):
+            return False
+        if not check_param_numeric(default_start_tstamp):
+            return False
+        if not check_param_numeric(time_gap):
+            return False
+        interval = float(interval)
+        sleep = int(sleep)
+        default_start_tstamp = int(default_start_tstamp)
+        time_gap = int(time_gap)
+    except ConfigParser.NoOptionError, e:
+        logger.warning('{config_ini} %s' % e)
         return False
-    if not check_param_numeric(sleep):
+    except ValueError, e:
+        logger.warning('{config_ini} %s' % e)
         return False
-    if not check_param_numeric(default_start_tstamp):
-        return False
-    if not check_param_numeric(time_gap):
-        return False
-    
-    interval = float(interval)
-    sleep = int(sleep)
-    default_start_tstamp = int(default_start_tstamp)
-    time_gap = int(time_gap)
     
     return True
     
@@ -75,7 +82,7 @@ def config_ini():
 def check_param_numeric(param):  
     
     valid = True  
-    if not isNumber(time_gap):
+    if not isNumber(param):
         logger.warning("Parameter '"+param+"' must be numeric. Please check file dbsync.config")
         valid = False
     return valid
@@ -86,32 +93,40 @@ def connect_databases():
     global db_from, db_dest, host, port, db, user, pwd, sgbd
 
     # DB origin. Connect to local Database (by default MsSQL)
-    host = settings.get('database', 'host')
-    port = settings.get('database', 'port')
-    db = settings.get('database', 'db')
-    user = settings.get('database', 'user')
-    pwd = settings.get('database', 'pwd')
-    sgbd = settings.get('database', 'sgbd')
-    if sgbd.lower() == 'mssql':
-        db_from = MsSqlDao()
-    else:
-        db_from = PgDao()     
-    db_from.set_params(host, port, db, user, pwd)
-    from_ok = db_from.init_db()
+    try:
+        host = settings.get('database', 'host')
+        port = settings.get('database', 'port')
+        db = settings.get('database', 'db')
+        user = settings.get('database', 'user')
+        pwd = settings.get('database', 'pwd')
+        sgbd = settings.get('database', 'sgbd')
+        if sgbd.lower() == 'mssql':
+            db_from = MsSqlDao()
+        else:
+            db_from = PgDao()     
+        db_from.set_params(host, port, db, user, pwd)
+        from_ok = db_from.init_db()
+    except ConfigParser.NoOptionError, e:
+        logger.warning('{connect_databases} %s' % e)
+        return False
 
     # DB destination. Connect to remote Database (by default PostgreSQL)
-    host_to = settings.get('database', 'host_to')
-    port_to = settings.get('database', 'port_to')
-    db_to = settings.get('database', 'db_to')
-    user_to = settings.get('database', 'user_to')
-    pwd_to = settings.get('database', 'pwd_to')
-    sgbd_to = settings.get('database', 'sgbd_to')    
-    if sgbd_to.lower() == 'mssql':
-        db_dest = MsSqlDao()
-    else:
-        db_dest = PgDao()      
-    db_dest.set_params(host_to, port_to, db_to, user_to, pwd_to)
-    dest_ok = db_dest.init_db()
+    try:
+        host_to = settings.get('database', 'host_to')
+        port_to = settings.get('database', 'port_to')
+        db_to = settings.get('database', 'db_to')
+        user_to = settings.get('database', 'user_to')
+        pwd_to = settings.get('database', 'pwd_to')
+        sgbd_to = settings.get('database', 'sgbd_to')    
+        if sgbd_to.lower() == 'mssql':
+            db_dest = MsSqlDao()
+        else:
+            db_dest = PgDao()      
+        db_dest.set_params(host_to, port_to, db_to, user_to, pwd_to)
+        dest_ok = db_dest.init_db()
+    except ConfigParser.NoOptionError, e:
+        logger.warning('{connect_databases} %s' % e)
+        return False        
 
     return (from_ok and dest_ok)
 
