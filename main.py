@@ -31,7 +31,7 @@ def main():
 
 def config_ini():
     
-    global logger, settings, scada_id, interval, sleep, default_start_tstamp, time_gap
+    global logger, settings, service_id, interval, sleep, default_start_tstamp, time_gap
     
     # Set daily log file
     app_name = 'dbsync'
@@ -48,12 +48,12 @@ def config_ini():
              
     settings = ConfigParser.ConfigParser({'sgbd': 'mssql', 'sgbd_to': 'pgsql', 'time_gap': '-1'})
     settings.read(setting_file)
-    scada_id = settings.get('main', 'scada_id')    
+    service_id = settings.get('main', 'service_id')    
     interval = settings.get('main', 'interval')    
     sleep = settings.get('main', 'sleep')    
     default_start_tstamp = settings.get('main', 'default_start_tstamp')    
     time_gap = settings.get('main', 'time_gap')    
-    if not check_param_numeric(scada_id):
+    if not check_param_numeric(service_id):
         return False    
     if not check_param_numeric(interval):
         return False
@@ -120,7 +120,7 @@ def set_task():
 
     task = db_task.DbTask()
     task.set_database_params(host, port, db, user, pwd, sgbd)
-    task.set_main_params(scada_id, interval, sleep, default_start_tstamp, time_gap)
+    task.set_main_params(service_id, interval, sleep, default_start_tstamp, time_gap)
     task.set_db_to(db_dest)
     
     # Execute main task

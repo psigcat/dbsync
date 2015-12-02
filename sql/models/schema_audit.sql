@@ -4,7 +4,7 @@ CREATE SCHEMA IF NOT EXISTS "audit";
 DROP TABLE IF EXISTS "audit"."log_detail";
 CREATE TABLE "audit"."log_detail" (
 "id" SERIAL,
-"scada_id" int4,
+"service_id" int4,
 "sensor_id" int4,
 "first_date" int8 NOT NULL,
 "last_date" int8 NOT NULL,
@@ -21,7 +21,7 @@ COMMENT ON TABLE "audit"."log_detail" IS 'History of inserts made by our Python 
 
 COMMENT ON COLUMN "audit"."log_detail"."id" IS 'Unique identifier for each transaction event';
 
-COMMENT ON COLUMN "audit"."log_detail"."scada_id" IS 'Scada identifier';
+COMMENT ON COLUMN "audit"."log_detail"."service_id" IS 'Service identifier';
 
 COMMENT ON COLUMN "audit"."log_detail"."sensor_id" IS 'Sensor identifier (from selected scada station)';
 

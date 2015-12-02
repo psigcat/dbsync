@@ -11,15 +11,15 @@ CONSTRAINT "model_pkey" PRIMARY KEY ("id")
 );
 
 
--- Data related to every scada station available
-DROP TABLE IF EXISTS "var"."scada";
-CREATE TABLE "var"."scada" (
+-- Data related to every service (location) available
+CREATE TABLE "var"."service" (
 "id" int4 NOT NULL,
+"code" varchar,
 "name" varchar,
-"location" varchar,
 "status" varchar,
 "scada_model_id" int2,
-CONSTRAINT "sensor_pkey" PRIMARY KEY ("id")
+CONSTRAINT "service_pkey" PRIMARY KEY ("id"),
+CONSTRAINT "service_scada_model_id_fkey" FOREIGN KEY ("scada_model_id") REFERENCES "var"."scada_model" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 
@@ -42,6 +42,7 @@ CREATE TABLE "var"."scada_1" (
 "sensor_id" int4 NOT NULL,
 "step_date" int8 NOT NULL,
 "step_value" numeric(10,2) NOT NULL,
+"tstamp" timestamp DEFAULT now(),
 CONSTRAINT "scada_1_pkey" PRIMARY KEY ("id")
 );
 
@@ -51,6 +52,7 @@ CREATE TABLE "var"."scada_n" (
 "sensor_id" int4 NOT NULL,
 "step_date" int8 NOT NULL,
 "step_value" numeric(10,2) NOT NULL,
+"tstamp" timestamp DEFAULT now(),
 CONSTRAINT "scada_n_pkey" PRIMARY KEY ("id")
 );
 
@@ -63,12 +65,5 @@ ALTER TABLE "var"."scada_1" ADD FOREIGN KEY ("sensor_id") REFERENCES "var"."sens
 ALTER TABLE "var"."scada_n" ADD FOREIGN KEY ("sensor_id") REFERENCES "var"."sensor" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 ALTER TABLE "var"."sensor" ADD FOREIGN KEY ("scada_id") REFERENCES "var"."scada" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
-
--- 20151119
-ALTER TABLE "var"."scada_1" ADD COLUMN "tstamp" timestamp DEFAULT now();
-ALTER TABLE "var"."scada_n" ADD COLUMN "tstamp" timestamp DEFAULT now();
-CREATE INDEX  ON "var"."scada_1" ("sensor_id");
-
 
 

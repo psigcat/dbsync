@@ -25,8 +25,8 @@ class DbTask():
         self.pwd = pwd
         self.sgbd = sgbd
         
-    def set_main_params(self, scada_id, interval, sleep, default_start_tstamp, time_gap):
-        self.scada_id = scada_id
+    def set_main_params(self, service_id, interval, sleep, default_start_tstamp, time_gap):
+        self.service_id = service_id
         self.interval = interval
         self.sleep = sleep
         self.default_start_tstamp = default_start_tstamp
@@ -57,7 +57,7 @@ class DbTask():
     def get_last_row(self, scada, sensor):
         
         sql = "SELECT MAX(last_date) FROM audit.log_detail"
-        sql = sql + " WHERE scada_id = "+str(scada)+" AND sensor_id = "+str(sensor)   
+        sql = sql + " WHERE service_id = "+str(scada)+" AND sensor_id = "+str(sensor)   
         result = None
         try:
             row = self.db_to.get_row(sql)
@@ -103,7 +103,7 @@ class DbTask():
         if total > 0:
             list_insert = []
             first_row = True
-            table_to = "scada_"+str(self.scada_id)        
+            table_to = "scada_"+str(self.service_id)        
             sql_to = "INSERT INTO var."+table_to+" (sensor_id, step_date, step_value) VALUES ("
             for row in rows:
                 values = str(sensor_id)+", "+xstr(row[0])+", "+xstr(row[1])
@@ -118,8 +118,8 @@ class DbTask():
             query = query+";\n"           
     
             # Insert process info into 'log_detail' table
-            sql = "INSERT INTO audit.log_detail (scada_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
-            log_detail = str(self.scada_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
+            sql = "INSERT INTO audit.log_detail (service_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
+            log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
             sql = sql+log_detail+");"
             query = query+sql
             self.db_to.execute_sql(query)                
@@ -175,7 +175,7 @@ class DbTask():
         if total > 0:
             list_insert = []
             first_row = True
-            table_to = "scada_"+str(self.scada_id)        
+            table_to = "scada_"+str(self.service_id)        
             sql_to = "INSERT INTO var."+table_to+" (sensor_id, step_date, step_value) VALUES ("
             for row in rows:
                 # Format date
@@ -194,8 +194,8 @@ class DbTask():
             query = query+";\n"                   
             
             # Insert process info into 'log_detail' table
-            sql = "INSERT INTO audit.log_detail (scada_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
-            log_detail = str(self.scada_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
+            sql = "INSERT INTO audit.log_detail (service_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
+            log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
             sql = sql+log_detail+");"
             query = query+sql
             self.db_to.execute_sql(query)                
@@ -217,15 +217,15 @@ class DbTask():
             self.logger.info("{copy_data} Delete previous data")               
             self.delete_previous_data()
          
-        # Get scada model from selected scada_id
-        sql = "SELECT scada_model_id FROM scada WHERE id = "+str(self.scada_id)
+        # Get scada model from selected service_id
+        sql = "SELECT scada_model_id FROM service WHERE id = "+str(self.service_id)
         row = self.db_to.get_row(sql) 
         
         # Set SQL and job function depending of its scada model
         job_function = self.job_copy_data        
         if row[0] == 1:
             job_function = self.job_copy_data_2
-            sql = "SELECT id FROM var.sensor WHERE scada_id = "+str(self.scada_id)
+            sql = "SELECT id FROM var.sensor WHERE service_id = "+str(self.service_id)
         elif row[0] == 2:
             job_function = self.job_copy_data_2
             sql = "SELECT id FROM var.sensor_2 WHERE status_id = 'active'"
@@ -258,15 +258,15 @@ class DbTask():
         # Get id of the last record inserted
         jobObj = schedule.every(self.interval).minutes
         jobObj.do(self.run_threaded, job_function, sensor_id)
-        previous_date = self.get_last_row(self.scada_id, sensor_id)
+        previous_date = self.get_last_row(self.service_id, sensor_id)
         self.sensor_dates[sensor_id] = previous_date      
         
             
     def delete_previous_data(self):
         
-        sql = "DELETE FROM audit.log_detail WHERE scada_id = "+str(self.scada_id)
+        sql = "DELETE FROM audit.log_detail WHERE service_id = "+str(self.service_id)
         self.db_to.execute_sql(sql)   
-        sql = "DELETE FROM var.scada_"+str(self.scada_id)
+        sql = "DELETE FROM var.scada_"+str(self.service_id)
         self.db_to.execute_sql(sql)           
         self.db_to.commit()        
         
