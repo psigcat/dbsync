@@ -290,7 +290,7 @@ class Job(object):
 
     def run(self):
         """Run the job and immediately reschedule it."""
-        self.logger.debug('Running job %s', self)
+        #self.logger.debug('Running job %s', self)
         ret = self.job_func()
         self.last_run = datetime.datetime.now()
         self._schedule_next_run()

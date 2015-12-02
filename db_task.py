@@ -15,6 +15,7 @@ class DbTask():
     def __init__(self):
         self.logger = logging.getLogger('dbsync') 
         self.sensor_dates = {} 
+        self.sensor_dates_logical = {} 
         self.exists = False
     
     def set_database_params(self, host, port, db, user, pwd, sgbd):
@@ -36,7 +37,7 @@ class DbTask():
         self.db_to = db
        
     def run_threaded(self, *args):
-        job_thread = threading.Thread(target=args[0], args=(args[1],))
+        job_thread = threading.Thread(target=args[0], args=(args[1],args[2]))
         job_thread.start()
         
         
@@ -54,10 +55,10 @@ class DbTask():
 
 
     # Get last row inserted for the selected scada and sensor
-    def get_last_row(self, scada, sensor):
+    def get_last_row(self, service, sensor, audit_table="log_detail"):
         
-        sql = "SELECT MAX(last_date) FROM audit.log_detail"
-        sql = sql + " WHERE service_id = "+str(scada)+" AND sensor_id = "+str(sensor)   
+        sql = "SELECT MAX(last_date) FROM audit."+audit_table
+        sql = sql + " WHERE service_id = "+str(service)+" AND sensor_id = "+str(sensor)   
         result = None
         try:
             row = self.db_to.get_row(sql)
@@ -71,9 +72,9 @@ class DbTask():
                 
         
     # Job task for scada model = 1            
-    def job_copy_data(self, sensor_id):
+    def job_copy_data_1(self, sensor_id, sensor_type="numeric"):
 
-        self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Start "+str(threading.current_thread()))
+        self.logger.info("{job_copy_data_1} Sensor "+str(sensor_id)+" - Start "+str(threading.current_thread()))
  
         # Get id of the last record inserted
         previous_date = self.sensor_dates[sensor_id]
@@ -81,7 +82,7 @@ class DbTask():
         # Create a new connection to origin database for this thread
         db_from = self.create_thread_conn()
         if db_from is None:
-            self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Error connecting to DB "+str(threading.current_thread()))              
+            self.logger.info("{job_copy_data_1} Sensor "+str(sensor_id)+" - Error connecting to DB "+str(threading.current_thread()))              
             return
 
         # Check if the sensor table exists in the origin Database
@@ -89,14 +90,14 @@ class DbTask():
         table_from = "LineStep_"+str(sensor_id)
         exists = db_from.check_table(schema_from, table_from)
         if not exists:
-            self.logger.info("{job_copy_data} Sensor table not found: "+schema_from+"."+table_from)          
+            self.logger.info("{job_copy_data_1} Sensor table not found: "+schema_from+"."+table_from)          
             return
         
         # SQL to retrieve data
         sql = "SELECT LStepDate, LStepValue FROM "+schema_from+"."+table_from+" WHERE LStepDate > "+str(previous_date)+" ORDER BY LStepDate"
         rows = db_from.query_sql(sql)
         total = len(rows)
-        self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Records found: "+str(total)) 
+        self.logger.info("{job_copy_data_1} Sensor "+str(sensor_id)+" - Records found: "+str(total)) 
             
         # If we have found at least one record
         # Define SQL's to Insert data into destination table
@@ -122,7 +123,7 @@ class DbTask():
             log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
             sql = sql+log_detail+");"
             query = query+sql
-            self.db_to.execute_sql(query)                
+            self.db_to.execute_sql(query)           
             
             # Commit all changes in current thread
             self.db_to.commit()
@@ -130,17 +131,31 @@ class DbTask():
         # Close connection to origin database for this thread 
         db_from.close()    
         
-        self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Records inserted: "+str(total))      
+        self.logger.info("{job_copy_data_1} Sensor "+str(sensor_id)+" - Records inserted: "+str(total))      
         
                
     # Job task for scada model = 2                
-    def job_copy_data_2(self, sensor_id):
+    def job_copy_data_2(self, sensor_id, sensor_type="numeric"):
 
-        self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Start "+str(threading.current_thread()))
- 
-        # Get id of the last record inserted
-        previous_date = self.sensor_dates[sensor_id]
+        self.logger.info("{job_copy_data_2} Sensor "+str(sensor_id)+" - Start "+str(threading.current_thread()))
         
+        # Define schema, table and column names depending its sensor_type
+        schema_from = "dbo"
+        schema_to = "var"             
+        if sensor_type == 'numeric':
+            audit_table = "log_detail"
+            table_from = "ArchivedNumericInformations"
+            table_to = "scada_"+str(self.service_id)     
+            col_id = "numericInformation_id"   
+            previous_date = self.sensor_dates[sensor_id]
+        else:
+            audit_table = "log_detail_logical"
+            table_from = "ArchivedLogicalInformations"  
+            table_to = "scada_"+str(self.service_id)+"_logical"    
+            col_id = "[logicalInformation_id]"              
+            previous_date = self.sensor_dates_logical[sensor_id]
+            self.logger.info("{job_copy_data_2} Sensor type: "+sensor_type)
+                                     
         # Format previous date
         date_object = datetime.strptime(previous_date, '%Y%m%d%H%M%S')   
         previous_date = date_object.strftime("%Y-%m-%d %H:%M:%S")      
@@ -148,41 +163,38 @@ class DbTask():
         # Create a new connection to origin database for this thread
         db_from = self.create_thread_conn()
         if db_from is None:
-            self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Error connecting to DB "+str(threading.current_thread()))              
+            self.logger.info("{job_copy_data_2} Sensor "+str(sensor_id)+" - Error connecting to DB "+str(threading.current_thread()))              
             return
 
         # Check if the sensor table exists in the origin Database (only first time)
-        schema_from = "dbo"
-        table_from = "ArchivedNumericInformations"
         if not self.exists:
             self.exists = db_from.check_table(schema_from, table_from)    
             if not self.exists:                    
-                self.logger.info("{job_copy_data} Sensor table not found: "+schema_from+"."+table_from)          
+                self.logger.info("{job_copy_data_2} Sensor table not found: "+schema_from+"."+table_from)          
                 return
         
         # SQL to retrieve data
         sql = "SELECT date, value FROM "+schema_from+"."+table_from+\
-            " WHERE numericInformation_id = "+str(sensor_id)+" AND date > '"+str(previous_date)+"'"
-        if self.time_gap != -1:
+            " WHERE "+col_id+" = "+str(sensor_id)+" AND date > '"+str(previous_date)+"'"
+        if sensor_type == 'numeric' and self.time_gap != -1:
             sql = sql + " AND DATEPART(hour, date) % "+str(self.time_gap)+" = 0 AND DATEPART(minute, date) = '00'" 
         sql = sql + " ORDER BY date"                  
         rows = db_from.query_sql(sql)
         total = len(rows)
-        self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Records found: "+str(total)) 
+        self.logger.info("{job_copy_data_2} Sensor "+str(sensor_id)+" - Records found: "+str(total)) 
             
         # If we have found at least one record
         # Define SQL's to Insert data into destination table
         if total > 0:
             list_insert = []
-            first_row = True
-            table_to = "scada_"+str(self.service_id)        
-            sql_to = "INSERT INTO var."+table_to+" (sensor_id, step_date, step_value) VALUES ("
+            first_row = True   
+            sql_to = "INSERT INTO "+schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("
             for row in rows:
                 # Format date
                 date_aux = xstr(row[0])[:-8]
                 date_object = datetime.strptime(date_aux, "%Y-%m-%d %H:%M:%S")
                 date_aux = date_object.strftime("%Y%m%d%H%M%S")                    
-                values = str(sensor_id)+", "+date_aux+", "+xstr(row[1])
+                values = str(sensor_id)+", "+date_aux+", "+xstr(int(row[1]))
                 aux = sql_to+values+")"
                 list_insert.append(aux)
                 if first_row:
@@ -194,7 +206,7 @@ class DbTask():
             query = query+";\n"                   
             
             # Insert process info into 'log_detail' table
-            sql = "INSERT INTO audit.log_detail (service_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
+            sql = "INSERT INTO audit."+audit_table+" (service_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
             log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
             sql = sql+log_detail+");"
             query = query+sql
@@ -206,7 +218,7 @@ class DbTask():
         # Close connection to origin database for this thread 
         db_from.close()    
         
-        self.logger.info("{job_copy_data} Sensor "+str(sensor_id)+" - Records inserted: "+str(total))          
+        self.logger.info("{job_copy_data_2} Sensor "+str(sensor_id)+" - Records inserted: "+str(total))          
 
 
     def copy_data(self, min_id=None, max_id=None, limit=None, delete_previous_data=False):
@@ -218,17 +230,19 @@ class DbTask():
             self.delete_previous_data()
          
         # Get scada model from selected service_id
-        sql = "SELECT scada_model_id FROM service WHERE id = "+str(self.service_id)
-        row = self.db_to.get_row(sql) 
+        sql = "SELECT model_id FROM service WHERE id = "+str(self.service_id)
+        row = self.db_to.get_row(sql)
+        model = row[0]
         
-        # Set SQL and job function depending of its scada model
-        job_function = self.job_copy_data        
-        if row[0] == 1:
+        # Set SQL and job function depending of its scada model   
+        if model == 1:
+            job_function = self.job_copy_data_1
+            sql = "SELECT id FROM var.sensor_"+str(self.service_id)
+            sql_logical = None  
+        elif model == 2:
             job_function = self.job_copy_data_2
-            sql = "SELECT id FROM var.sensor WHERE service_id = "+str(self.service_id)
-        elif row[0] == 2:
-            job_function = self.job_copy_data_2
-            sql = "SELECT id FROM var.sensor_2 WHERE status_id = 'active'"
+            sql = "SELECT id FROM var.sensor_"+str(self.service_id)+" WHERE status_id = 'active'"
+            sql_logical = "SELECT id FROM var.sensor_"+str(self.service_id)+"_logical WHERE status_id = 'active'"
             
         # Create SQL to retrieve sensors
         if min_id is not None:
@@ -242,25 +256,50 @@ class DbTask():
         rows = self.db_to.query_sql(sql)        
         
         # Iterate over all returned sensors         
-        for row in rows:        
+        for row in rows:       
+            # Define sensor job
             sensor_id = row[0]
-            self.create_sensor_job(sensor_id, job_function)          
+            self.create_sensor_job(job_function, sensor_id) 
+            # Get id of the last record inserted
+            previous_date = self.get_last_row(self.service_id, sensor_id)
+            self.sensor_dates[sensor_id] = previous_date      
                
         self.logger.info("{copy_data} Previous dates:\n"+str(self.sensor_dates))   
+        
+        # Process sensors of type logical (if any)
+        if model == 2:
+            sql = sql_logical
+            # Create SQL to retrieve sensors
+            if min_id is not None:
+                sql = sql+" AND id >= "+str(min_id)
+            if max_id is not None:
+                sql = sql+" AND id <= "+str(max_id)
+            sql = sql+" ORDER BY id"
+            if limit is not None:
+                sql = sql+" LIMIT "+str(limit)
+            self.logger.info("{copy_data} "+str(sql))              
+            rows = self.db_to.query_sql(sql)        
+            
+            # Iterate over all returned sensors         
+            for row in rows:       
+                # Define sensor job
+                sensor_id = row[0]
+                self.create_sensor_job(job_function, sensor_id, "logical") 
+                # Get id of the last record inserted
+                previous_date = self.get_last_row(self.service_id, sensor_id, "log_detail_logical")
+                self.sensor_dates_logical[sensor_id] = previous_date      
+                   
+            self.logger.info("{copy_data} Previous dates (logical):\n"+str(self.sensor_dates_logical))   
          
         # Run all jobs (one per sensor) with selected delayed seconds between each one             
         schedule.run_all(self.sleep)       
 
 
-    def create_sensor_job(self, sensor_id, job_function):
-
-        # Define sensor job
-        # Get id of the last record inserted
-        jobObj = schedule.every(self.interval).minutes
-        jobObj.do(self.run_threaded, job_function, sensor_id)
-        previous_date = self.get_last_row(self.service_id, sensor_id)
-        self.sensor_dates[sensor_id] = previous_date      
+    def create_sensor_job(self, job_function, sensor_id, sensor_type="numeric"):
         
+        jobObj = schedule.every(self.interval).minutes
+        jobObj.do(self.run_threaded, job_function, sensor_id, sensor_type)
+
             
     def delete_previous_data(self):
         
