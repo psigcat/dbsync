@@ -2,6 +2,7 @@
 import logging
 import os.path
 import time
+from datetime import datetime
 
 
 #
@@ -26,12 +27,18 @@ def get_current_time():
     return aux    
 
 
+def date_to_tstamp(date_aux):
+    date_object = datetime.strptime(date_aux, "%Y-%m-%d %H:%M:%S")
+    date_aux = date_object.strftime("%Y%m%d%H%M%S")            
+    return date_aux
+    
+    
 def set_logging(log_folder, log_name):
     
     global logger 
     
     # Create logger
-    logger = logging.getLogger('dbsync')
+    logger = logging.getLogger(log_name)
     logger.setLevel(logging.DEBUG)
     
     # Define filename and format

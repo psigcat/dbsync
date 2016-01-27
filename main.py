@@ -31,7 +31,8 @@ def main():
 
 def config_ini():
     
-    global logger, settings, service_id, interval, sleep, default_start_tstamp, time_gap
+    global logger, settings, service_id, interval, sleep, default_start_tstamp, time_gap, track_all_records
+    global min_id, max_id, limit
     
     # Set daily log file
     app_name = 'dbsync'
@@ -46,7 +47,8 @@ def config_ini():
         logger.warning("Config file not found at: "+setting_file)
         return False
              
-    default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql', 'time_gap': '-1'}             
+    default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql', 'time_gap': '-1', 
+                      'track_all_records': '1', 'min_id': '-1', 'max_id': '-1', 'limit': '-1'}             
     settings = ConfigParser.ConfigParser(default_values)
     settings.read(setting_file)
     try:
@@ -55,20 +57,18 @@ def config_ini():
         sleep = settings.get('main', 'sleep')    
         default_start_tstamp = settings.get('main', 'default_start_tstamp')    
         time_gap = settings.get('main', 'time_gap')    
-        if not check_param_numeric(service_id):
-            return False    
-        if not check_param_numeric(interval):
-            return False
-        if not check_param_numeric(sleep):
-            return False
-        if not check_param_numeric(default_start_tstamp):
-            return False
-        if not check_param_numeric(time_gap):
-            return False
+        track_all_records = settings.get('main', 'track_all_records')    
+        min_id = settings.get('main', 'min_id')    
+        max_id = settings.get('main', 'max_id')    
+        limit = settings.get('main', 'limit')    
         interval = float(interval)
         sleep = int(sleep)
         default_start_tstamp = int(default_start_tstamp)
         time_gap = int(time_gap)
+        track_all_records = int(track_all_records)
+        min_id = int(min_id)
+        max_id = int(max_id)
+        limit = int(limit)
     except ConfigParser.NoOptionError, e:
         logger.warning('{config_ini} %s' % e)
         return False
@@ -135,12 +135,12 @@ def set_task():
 
     task = db_task.DbTask()
     task.set_database_params(host, port, db, user, pwd, sgbd)
-    task.set_main_params(service_id, interval, sleep, default_start_tstamp, time_gap)
+    task.set_main_params(service_id, interval, sleep, default_start_tstamp, time_gap, track_all_records)
     task.set_db_to(db_dest)
     
     # Execute main task
     task.copy_data()              
-        
-
+    
+    
 if __name__ == '__main__':
     main()
