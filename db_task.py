@@ -29,12 +29,11 @@ class DbTask():
         self.pwd = pwd
         self.sgbd = sgbd
         
-    def set_main_params(self, service_id, interval, sleep, default_start_tstamp, time_gap, track_all_records):
+    def set_main_params(self, service_id, interval, sleep, default_start_tstamp, track_all_records):
         self.service_id = service_id
         self.interval = interval
         self.sleep = sleep
         self.default_start_tstamp = default_start_tstamp
-        self.time_gap = time_gap
         self.track_all_records = track_all_records
 
     def set_db_to(self, db):
@@ -172,8 +171,6 @@ class DbTask():
         # SQL to retrieve data
         sql = "SELECT date, value FROM "+self.schema_from+"."+table_from+\
             " WHERE "+col_id+" = "+str(sensor_id)+" AND date > '"+str(previous_date)+"'"
-        if sensor_type == 'numeric' and self.time_gap != -1:
-            sql = sql + " AND DATEPART(hour, date) % "+str(self.time_gap)+" = 0 AND DATEPART(minute, date) = '00'" 
         sql = sql + " ORDER BY date"                  
         rows = db_from.query_sql(sql)
         total_found = len(rows)

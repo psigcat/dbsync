@@ -31,7 +31,7 @@ def main():
 
 def config_ini():
     
-    global logger, settings, service_id, interval, sleep, default_start_tstamp, time_gap, track_all_records
+    global logger, settings, service_id, interval, sleep, default_start_tstamp, track_all_records
     global min_id, max_id, limit
     
     # Set daily log file
@@ -47,7 +47,7 @@ def config_ini():
         logger.warning("Config file not found at: "+setting_file)
         return False
              
-    default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql', 'time_gap': '-1', 
+    default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql',  
                       'track_all_records': '1', 'min_id': '-1', 'max_id': '-1', 'limit': '-1'}             
     settings = ConfigParser.ConfigParser(default_values)
     settings.read(setting_file)
@@ -56,7 +56,6 @@ def config_ini():
         interval = settings.get('main', 'interval')    
         sleep = settings.get('main', 'sleep')    
         default_start_tstamp = settings.get('main', 'default_start_tstamp')    
-        time_gap = settings.get('main', 'time_gap')    
         track_all_records = settings.get('main', 'track_all_records')    
         min_id = settings.get('main', 'min_id')    
         max_id = settings.get('main', 'max_id')    
@@ -64,7 +63,6 @@ def config_ini():
         interval = float(interval)
         sleep = int(sleep)
         default_start_tstamp = int(default_start_tstamp)
-        time_gap = int(time_gap)
         track_all_records = int(track_all_records)
         min_id = int(min_id)
         max_id = int(max_id)
@@ -135,7 +133,7 @@ def set_task():
 
     task = db_task.DbTask()
     task.set_database_params(host, port, db, user, pwd, sgbd)
-    task.set_main_params(service_id, interval, sleep, default_start_tstamp, time_gap, track_all_records)
+    task.set_main_params(service_id, interval, sleep, default_start_tstamp, track_all_records)
     task.set_db_to(db_dest)
     
     # Execute main task
