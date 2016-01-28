@@ -18,6 +18,8 @@ class DbTask():
         self.sensor_dates_logical = {} 
         self.exists = False
         self.audit_table = "log_detail"
+        self.schema_from = "dbo"          
+        self.schema_to = "var"
     
     def set_database_params(self, host, port, db, user, pwd, sgbd):
         self.host = host
@@ -88,52 +90,46 @@ class DbTask():
             return
 
         # Check if the sensor table exists in the origin Database
-        schema_from = "dbo"
         table_from = "LineStep_"+str(sensor_id)
-        exists = db_from.check_table(schema_from, table_from)
+        exists = db_from.check_table(self.schema_from, table_from)
         if not exists:
-            self.logger.info("Sensor table not found: "+schema_from+"."+table_from)          
+            self.logger.info("Sensor table not found: "+self.schema_from+"."+table_from)          
             return
         
         # SQL to retrieve data
-        sql = "SELECT LStepDate, LStepValue FROM "+schema_from+"."+table_from+" WHERE LStepDate > "+str(previous_date)+" ORDER BY LStepDate"
+        sql = "SELECT LStepDate, LStepValue FROM "+self.schema_from+"."+table_from+" WHERE LStepDate > "+str(previous_date)+" ORDER BY LStepDate"
         rows = db_from.query_sql(sql)
-        total = len(rows)
-        self.logger.info("Sensor "+str(sensor_id)+" - Records found: "+str(total)) 
+        total_found = len(rows)
+        total_inserted = 0        
+        self.logger.info("Sensor "+str(sensor_id)+" - Records found: "+str(total_found)) 
             
         # If we have found at least one record
         # Define SQL's to Insert data into destination table
-        if total > 0:
-            list_insert = []
-            first_row = True
+        if total_found > 0:
+            i = 0
+            previous_value = None            
+            list_insert = []   
             table_to = "scada_"+str(self.service_id)        
-            sql_to = "INSERT INTO var."+table_to+" (sensor_id, step_date, step_value) VALUES ("
+            sql_to = "INSERT INTO "+self.schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("
             for row in rows:
-                values = str(sensor_id)+", "+xstr(row[0])+", "+xstr(row[1])
-                aux = sql_to+values+")"
-                list_insert.append(aux)
-                if first_row:
-                    first_date = xstr(row[0])
-                    first_row = False
-                last_date = xstr(row[0])
+                # Set first and last date
+                i = i + 1
+                if i == 1:               
+                    first_date = date_to_tstamp(xstr(row[0])[:-8])  
+                if i == total_found:                 
+                    last_date = date_to_tstamp(xstr(row[0])[:-8])
+                # Check if value has changed or we want to track all records
+                if previous_value <> row[1] or self.track_all_records == 1:
+                    date_aux = xstr(row[0])                    
+                    values = str(sensor_id)+", "+date_aux+", "+xstr(row[1])
+                    aux = sql_to+values+")"
+                    list_insert.append(aux)
+                    previous_value = row[1]  
+                    total_inserted = total_inserted + 1               
                                   
-            query = ';\n'.join(list_insert)
-            query = query+";\n"           
-    
-            # Insert process info into 'log_detail' table
-            sql = "INSERT INTO audit.log_detail (service_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
-            log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
-            sql = sql+log_detail+");"
-            query = query+sql
-            self.db_to.execute_sql(query)           
-            
-            # Commit all changes in current thread
-            self.db_to.commit()
+            self.job_post_process(list_insert, self.audit_table, sensor_id, first_date, last_date, total_found, total_inserted, db_from.get_host())
         
-        # Close connection to origin database for this thread 
-        db_from.close()    
-        
-        self.logger.info("Sensor "+str(sensor_id)+" - Records inserted: "+str(total))      
+        self.job_close_connection(db_from, sensor_id, total_inserted) 
         
                
     # Job task for scada model = 2                
@@ -141,9 +137,7 @@ class DbTask():
 
         self.logger.info("Sensor "+str(sensor_id)+" - "+str(threading.current_thread()))
         
-        # Define schema, table and column names depending its sensor_type
-        schema_from = "dbo"
-        schema_to = "var"             
+        # Define table and column names depending its sensor_type     
         if sensor_type == 'numeric':
             audit_table = self.audit_table
             table_from = "ArchivedNumericInformations"
@@ -170,72 +164,58 @@ class DbTask():
 
         # Check if the sensor table exists in the origin Database (only first time)
         if not self.exists:
-            self.exists = db_from.check_table(schema_from, table_from)    
+            self.exists = db_from.check_table(self.schema_from, table_from)    
             if not self.exists:                    
-                self.logger.info("Sensor table not found: "+schema_from+"."+table_from)          
+                self.logger.info("Sensor table not found: "+self.schema_from+"."+table_from)          
                 return
         
         # SQL to retrieve data
-        sql = "SELECT date, value FROM "+schema_from+"."+table_from+\
+        sql = "SELECT date, value FROM "+self.schema_from+"."+table_from+\
             " WHERE "+col_id+" = "+str(sensor_id)+" AND date > '"+str(previous_date)+"'"
         if sensor_type == 'numeric' and self.time_gap != -1:
             sql = sql + " AND DATEPART(hour, date) % "+str(self.time_gap)+" = 0 AND DATEPART(minute, date) = '00'" 
         sql = sql + " ORDER BY date"                  
         rows = db_from.query_sql(sql)
-        total = len(rows)
-        self.logger.info("Sensor "+str(sensor_id)+" - Records found: "+str(total)) 
-            
+        total_found = len(rows)
+        total_inserted = 0
+        self.logger.info("Sensor "+str(sensor_id)+" - Records found: "+str(total_found)) 
+                                
         # If we have found at least one record
         # Define SQL's to Insert data into destination table
-        if total > 0:
-            list_insert = []
-            first_row = True   
-            sql_to = "INSERT INTO "+schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("
+        if total_found > 0:
+            i = 0
+            previous_value = None            
+            list_insert = []   
+            sql_to = "INSERT INTO "+self.schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("
             for row in rows:
-                # Format date
-                date_aux = xstr(row[0])[:-8]
-                date_object = datetime.strptime(date_aux, "%Y-%m-%d %H:%M:%S")
-                date_aux = date_object.strftime("%Y%m%d%H%M%S") 
-                # TODO: int(row[1]) only valid fur logical!                   
-                values = str(sensor_id)+", "+date_aux+", "+xstr(int(row[1]))
-                aux = sql_to+values+")"
-                list_insert.append(aux)
-                if first_row:
-                    first_date = date_aux
-                    first_row = False
-                last_date = date_aux
-                                  
-            query = ';\n'.join(list_insert)
-            query = query+";\n"                   
-            
-            # Insert process info into 'log_detail' table
-            sql = "INSERT INTO audit."+audit_table+" (service_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
-            log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total)+", '"+db_from.get_host()+"'"
-            sql = sql+log_detail+");"
-            query = query+sql
-            self.db_to.execute_sql(query)                
-            
-            # Commit all changes in current thread
-            self.db_to.commit()
+                # Set first and last date
+                i = i + 1
+                if i == 1:               
+                    first_date = date_to_tstamp(xstr(row[0])[:-8])  
+                if i == total_found:                 
+                    last_date = date_to_tstamp(xstr(row[0])[:-8])
+                # Check if value has changed or we want to track all records
+                if previous_value <> row[1] or self.track_all_records == 1:
+                    date_aux = date_to_tstamp(xstr(row[0])[:-8])                    
+                    values = str(sensor_id)+", "+date_aux+", "+xstr(row[1])
+                    aux = sql_to+values+")"
+                    list_insert.append(aux)
+                    previous_value = row[1]  
+                    total_inserted = total_inserted + 1
+                    
+            self.job_post_process(list_insert, audit_table, sensor_id, first_date, last_date, total_found, total_inserted, db_from.get_host())
+                                          
+        self.job_close_connection(db_from, sensor_id, total_inserted)             
         
-        # Close connection to origin database for this thread 
-        db_from.close()    
-        
-        self.logger.info("Sensor "+str(sensor_id)+" - Records inserted: "+str(total))          
-               
                
     # Job task for scada model = 3          
     def job_copy_data_3(self, sensor_id, sensor_type="numeric"):
 
         self.logger.info("Sensor "+str(sensor_id)+" - "+str(threading.current_thread()))
-        
-        schema_from = "dbo"
-        schema_to = "var"             
-        table_to = "scada_"+str(self.service_id)     
-        audit_table = self.audit_table
-        
+                  
         # Get table and column names from sensor table
-        sql = "SELECT table_name, column_name FROM "+schema_to+".sensor_"+str(self.service_id)+" WHERE id = "+str(sensor_id)
+        table_to = "scada_"+str(self.service_id)     
+        sql = "SELECT table_name, column_name FROM "+self.schema_to+".sensor_"+str(self.service_id)+" WHERE id = "+str(sensor_id)
         row = self.db_to.get_row(sql)
         table_from = row[0]
         col_from = row[1]  
@@ -253,13 +233,13 @@ class DbTask():
 
         # Check if the sensor table exists in the origin Database (only first time)
         if not self.exists:
-            self.exists = db_from.check_table(schema_from, table_from)    
+            self.exists = db_from.check_table(self.schema_from, table_from)    
             if not self.exists:                    
-                self.logger.info("Sensor table not found: "+schema_from+"."+table_from)          
+                self.logger.info("Sensor table not found: "+self.schema_from+"."+table_from)          
                 return
         
         # SQL to retrieve data
-        sql = "SELECT Time_Stamp, "+col_from+" FROM "+schema_from+"."+table_from+\
+        sql = "SELECT Time_Stamp, "+col_from+" FROM "+self.schema_from+"."+table_from+\
             " WHERE Time_Stamp > '"+str(previous_date)+"'"
         sql = sql + " ORDER BY Time_Stamp"                  
         rows = db_from.query_sql(sql)
@@ -273,7 +253,7 @@ class DbTask():
             i = 0
             previous_value = None            
             list_insert = []   
-            sql_to = "INSERT INTO "+schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("
+            sql_to = "INSERT INTO "+self.schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("
             for row in rows:
                 # Set first and last date
                 i = i + 1
@@ -290,24 +270,36 @@ class DbTask():
                     previous_value = row[1]  
                     total_inserted = total_inserted + 1
                                   
-            query = ';\n'.join(list_insert)
-            query = query+";\n"                   
+            self.job_post_process(list_insert, self.audit_table, sensor_id, first_date, last_date, total_found, total_inserted, db_from.get_host())
+        
+        self.job_close_connection(db_from, sensor_id, total_inserted)       
+
+
+    def job_post_process(self, list_insert, audit_table, sensor_id, first_date, last_date, total_found, total_inserted, host):
+
+        # Complete query with inserted records
+        query = ';\n'.join(list_insert)
+        query = query+";\n"   
             
-            # Insert process info into 'log_detail' table
-            sql = "INSERT INTO audit."+audit_table+" (service_id, sensor_id, first_date, last_date, rec_number, addr) VALUES ("
-            log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total_inserted)+", '"+db_from.get_host()+"'"
-            sql = sql+log_detail+");"
-            query = query+sql
-            self.db_to.execute_sql(query)                
-            
-            # Commit all changes in current thread
-            self.db_to.commit()
+        # Insert process info into 'log_detail' table
+        sql = "INSERT INTO audit."+audit_table+" (service_id, sensor_id, first_date, last_date, rec_found, rec_inserted, addr) VALUES ("
+        log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total_found)+", "+str(total_inserted)+", '"+host+"'"
+        sql = sql+log_detail+");"
+        query = query+sql
+        self.db_to.execute_sql(query)                
+        
+        # Commit all changes in current thread
+        self.db_to.commit()  
+        
+    
+    def job_close_connection(self, db_from, sensor_id, total_inserted):
         
         # Close connection to origin database for this thread 
         db_from.close()    
-        
-        self.logger.info("Sensor "+str(sensor_id)+" - Records inserted: "+str(total_inserted))          
 
+        # Log final message
+        self.logger.info("Sensor "+str(sensor_id)+" - Records inserted: "+str(total_inserted))    
+        
 
     def copy_data(self, min_id=None, max_id=None, limit=None, delete_previous_data=False):
 
