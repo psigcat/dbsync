@@ -147,9 +147,8 @@ class DbTask():
             audit_table = self.audit_table+"_logical"
             table_from = "ArchivedLogicalInformations"  
             table_to = "scada_"+str(self.service_id)+"_logical"    
-            col_id = "[logicalInformation_id]"              
+            col_id = "logicalInformation_id"              
             previous_date = self.sensor_dates_logical[sensor_id]
-            self.logger.info("Sensor type: "+sensor_type)
                                      
         # Format previous date
         date_object = datetime.strptime(previous_date, '%Y%m%d%H%M%S')   
@@ -183,7 +182,7 @@ class DbTask():
             i = 0
             previous_value = None            
             list_insert = []   
-            sql_to = "INSERT INTO "+self.schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("
+            sql_to = "INSERT INTO "+self.schema_to+"."+table_to+" (sensor_id, step_date, step_value) VALUES ("          
             for row in rows:
                 # Set first and last date
                 i = i + 1
@@ -193,13 +192,16 @@ class DbTask():
                     last_date = date_to_tstamp(xstr(row[0])[:-8])
                 # Check if value has changed or we want to track all records
                 if previous_value <> row[1] or self.track_all_records == 1:
-                    date_aux = date_to_tstamp(xstr(row[0])[:-8])                    
-                    values = str(sensor_id)+", "+date_aux+", "+xstr(row[1])
+                    date_aux = date_to_tstamp(xstr(row[0])[:-8])     
+                    if sensor_type == 'numeric':                                   
+                        values = str(sensor_id)+", "+date_aux+", "+xstr(row[1])
+                    else:
+                        values = str(sensor_id)+", "+date_aux+", "+xstr(int(row[1]))                        
                     aux = sql_to+values+")"
                     list_insert.append(aux)
                     previous_value = row[1]  
                     total_inserted = total_inserted + 1
-                    
+              
             self.job_post_process(list_insert, audit_table, sensor_id, first_date, last_date, total_found, total_inserted, db_from.get_host())
                                           
         self.job_close_connection(db_from, sensor_id, total_inserted)             
@@ -283,7 +285,9 @@ class DbTask():
         log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(first_date)+", "+str(last_date)+", "+str(total_found)+", "+str(total_inserted)+", '"+host+"'"
         sql = sql+log_detail+");"
         query = query+sql
-        self.db_to.execute_sql(query)                
+        self.db_to.execute_sql(query)  
+
+        self.logger.info(sql)  
         
         # Commit all changes in current thread
         self.db_to.commit()  
@@ -315,11 +319,9 @@ class DbTask():
         if model == 1:
             job_function = self.job_copy_data_1
             sql = "SELECT id FROM var.sensor_"+str(self.service_id)
-            sql_logical = None  
         elif model == 2:
             job_function = self.job_copy_data_2
             sql = "SELECT id FROM var.sensor_"+str(self.service_id)+" WHERE status_id = 'active'"
-            sql_logical = "SELECT id FROM var.sensor_"+str(self.service_id)+"_logical WHERE status_id = 'active'"
         elif model == 3:
             job_function = self.job_copy_data_3
             sql = "SELECT id FROM var.sensor_"+str(self.service_id)+" WHERE status_id = 'active'"
@@ -333,9 +335,9 @@ class DbTask():
         if limit is not None:
             sql = sql+" LIMIT "+str(limit)
         self.logger.info("{copy_data} "+str(sql))              
-        rows = self.db_to.query_sql(sql)        
         
         # Iterate over all returned sensors         
+        rows = self.db_to.query_sql(sql)        
         for row in rows:       
             # Define sensor job
             sensor_id = row[0]
@@ -343,12 +345,12 @@ class DbTask():
             # Get id of the last record inserted
             previous_date = self.get_last_row(self.service_id, sensor_id)
             self.sensor_dates[sensor_id] = previous_date      
-               
+                
         self.logger.info("{copy_data} Previous dates:\n"+str(self.sensor_dates))   
         
         # Process sensors of type logical (if any)
         if model == 2:
-            sql = sql_logical
+            sql = "SELECT id FROM var.sensor_"+str(self.service_id)+"_logical WHERE status_id = 'active'"
             # Create SQL to retrieve sensors
             if min_id is not None:
                 sql = sql+" AND id >= "+str(min_id)
@@ -366,7 +368,7 @@ class DbTask():
                 sensor_id = row[0]
                 self.create_sensor_job(job_function, sensor_id, "logical") 
                 # Get id of the last record inserted
-                previous_date = self.get_last_row(self.service_id, sensor_id, "log_detail_logical")
+                previous_date = self.get_last_row(self.service_id, sensor_id, self.audit_table+"_logical")
                 self.sensor_dates_logical[sensor_id] = previous_date      
                    
             self.logger.info("{copy_data} Previous dates (logical):\n"+str(self.sensor_dates_logical))   
