@@ -82,8 +82,6 @@ class DbTask():
         
     # Job task for scada model = 1            
     def job_copy_data_1(self, sensor_id, sensor_type=1):
-
-        self.logger.info("Sensor "+str(sensor_id)+" - "+str(threading.current_thread()))
  
         # Get id of the last record inserted
         previous_date = self.sensor_dates[sensor_id]
@@ -139,8 +137,6 @@ class DbTask():
                
     # Job task for scada model = 2                
     def job_copy_data_2(self, sensor_id, sensor_type=1):
-
-        self.logger.info("Sensor "+str(sensor_id)+" - "+str(threading.current_thread()))
         
         # Define table and column names depending its sensor_type     
         if sensor_type == 1:
@@ -185,8 +181,6 @@ class DbTask():
                
     # Job task for scada model = 3          
     def job_copy_data_3(self, sensor_id, sensor_type=1):
-
-        self.logger.info("Sensor "+str(sensor_id)+" - "+str(threading.current_thread()))
                   
         # Get table and column names from sensor table 
         sql = "SELECT table_name, column_name FROM "+self.schema_to+".sensor_"+str(self.service_id)+" WHERE id = "+str(sensor_id)
@@ -231,7 +225,7 @@ class DbTask():
         
         total_found = len(rows)
         total_inserted = 0        
-        self.logger.info("Sensor "+str(sensor_id)+" - Records found: "+str(total_found))  
+        self.logger.info("Sensor "+str(sensor_id)+" ("+str(sensor_type)+") - Records found: "+str(total_found))  
             
         # If we have found at least one record
         # Define SQL's to Insert data into destination table
@@ -274,7 +268,7 @@ class DbTask():
         log_detail = str(self.service_id)+", "+str(sensor_id)+", "+str(sensor_type)+", '"+first_date+"', '"+last_date+"', "+str(total_found)+", "+str(total_inserted)
         sql = sql+log_detail+");"
         query = query+sql
-        self.logger.info("Sensor "+str(sensor_id)+" - Records inserted: "+str(total_inserted))        
+        self.logger.info("Sensor "+str(sensor_id)+" ("+str(sensor_type)+") - Records inserted: "+str(total_inserted))        
         self.logger.info(sql)  
         self.db_to.execute_sql(query)  
         
@@ -282,7 +276,7 @@ class DbTask():
         self.db_to.commit()  
                 
 
-    def copy_data(self, min_id=None, max_id=None, limit=None, delete_previous_data=False):
+    def copy_data(self, min_id=-1, max_id=-1, limit=-1, delete_previous_data=False):
 
         self.logger.info("{copy_data} Start process")       
         
@@ -313,39 +307,44 @@ class DbTask():
             sql = "SELECT id FROM var.sensor_"+str(self.service_id)+" WHERE status_id = 'active'"
             
         # Create SQL to retrieve sensors
-        if min_id is not None:
+        if min_id != -1:
             sql = sql+" AND id >= "+str(min_id)
-        if max_id is not None:
+        if max_id != -1:
             sql = sql+" AND id <= "+str(max_id)
         sql = sql+" ORDER BY id"
-        if limit is not None:
+        if limit != -1:
             sql = sql+" LIMIT "+str(limit)
         self.logger.info("{copy_data} "+str(sql))              
         
-        # Iterate over all returned sensors         
-        rows = self.db_to.query_sql(sql)        
-        for row in rows:       
-            # Define sensor job
-            sensor_id = row[0]
-            self.create_sensor_job(job_function, sensor_id, 1) 
-            # Get id of the last record inserted
-            previous_date = self.get_last_date(self.service_id, sensor_id, 1)
-            self.sensor_dates[sensor_id] = previous_date      
-                
-        self.logger.info("{copy_data} Previous dates:\n"+str(self.sensor_dates))   
+        # Check if we have to process numeric sensors (sensor_type = 1)
+        process_numeric_sensors = self.settings.get('main', 'process_numeric_sensors')
+        process_numeric_sensors = int(process_numeric_sensors)
+        if process_numeric_sensors == 1:        
+            # Iterate over all returned sensors         
+            rows = self.db_to.query_sql(sql)        
+            for row in rows:       
+                # Define sensor job
+                sensor_id = row[0]
+                self.create_sensor_job(job_function, sensor_id, 1) 
+                # Get id of the last record inserted
+                previous_date = self.get_last_date(self.service_id, sensor_id, 1)
+                self.sensor_dates[sensor_id] = previous_date      
+                    
+            self.logger.info("{copy_data} Previous dates (numeric):\n"+str(self.sensor_dates))   
         
-        # Process sensors of type logical (if any)
+        
+        # Check if we have to process logical sensors (sensor_type = 2)
         process_logical_sensors = self.settings.get('main', 'process_logical_sensors')
         process_logical_sensors = int(process_logical_sensors)
         if model == 2 and process_logical_sensors == 1:
             sql = "SELECT id FROM var.sensor_"+str(self.service_id)+"_logical WHERE status_id = 'active'"
             # Create SQL to retrieve sensors
-            if min_id is not None:
+            if min_id != -1:
                 sql = sql+" AND id >= "+str(min_id)
-            if max_id is not None:
+            if max_id != -1:
                 sql = sql+" AND id <= "+str(max_id)
             sql = sql+" ORDER BY id"
-            if limit is not None:
+            if limit != -1:
                 sql = sql+" LIMIT "+str(limit)
             self.logger.info("{copy_data} "+str(sql))              
             rows = self.db_to.query_sql(sql)        

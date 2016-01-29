@@ -3,7 +3,7 @@ config/dbsync*
 sql/test_data/
 *.ndm
 *.log
-*test.py
+*test*.py
 *.bat
 
 # Eclipse

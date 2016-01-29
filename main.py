@@ -46,7 +46,7 @@ def config_ini():
         return False
              
     default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql',  
-                      'track_all_records': '1', 'process_logical_sensors': '0', 
+                      'track_all_records': '1', 'process_numeric_sensors': '1', 'process_logical_sensors': '1', 
                       'min_id': '-1', 'max_id': '-1', 'limit': '-1', 'date_to': '20990101'}             
     settings = ConfigParser.ConfigParser(default_values)
     settings.read(setting_file)
@@ -137,7 +137,7 @@ def set_task():
     task.set_settings(settings)
     
     # Execute main task
-    task.copy_data()              
+    task.copy_data(min_id, max_id, limit)              
     
     
 if __name__ == '__main__':
