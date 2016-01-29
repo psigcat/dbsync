@@ -25,8 +25,6 @@ def main():
     if not connect_databases():
         return
     set_task()
-    
-    logger.info('App finished\n')    
 
 
 def config_ini():
@@ -48,7 +46,8 @@ def config_ini():
         return False
              
     default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql',  
-                      'track_all_records': '1', 'min_id': '-1', 'max_id': '-1', 'limit': '-1'}             
+                      'track_all_records': '1', 'process_logical_sensors': '0', 
+                      'min_id': '-1', 'max_id': '-1', 'limit': '-1', 'date_to': '20990101'}             
     settings = ConfigParser.ConfigParser(default_values)
     settings.read(setting_file)
     try:
@@ -135,6 +134,7 @@ def set_task():
     task.set_database_params(host, port, db, user, pwd, sgbd)
     task.set_main_params(service_id, interval, sleep, default_start_tstamp, track_all_records)
     task.set_db_to(db_dest)
+    task.set_settings(settings)
     
     # Execute main task
     task.copy_data()              

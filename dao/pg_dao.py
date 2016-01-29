@@ -32,7 +32,7 @@ class PgDao():
 
     def query_sql(self, sql):
         self.cursor.execute(sql)
-        rows = self.cursor.fetchall()
+        rows = self.cursor.fetchall()              
         return rows
     
     def get_row(self, sql):
@@ -41,8 +41,16 @@ class PgDao():
         return row
 
     def execute_sql(self, sql):
-        self.cursor.execute(sql)
+        self.cursor.execute(sql) 
 
     def commit(self):
         self.conn.commit()
+        
+    def checkTable(self, schemaName, tableName):
+        exists = True
+        sql = "SELECT * FROM pg_tables WHERE schemaname = '"+schemaName+"' AND tablename = '"+tableName+"'"    
+        self.cursor.execute(sql)         
+        if self.cursor.rowcount == 0:      
+            exists = False
+        return exists             
 
