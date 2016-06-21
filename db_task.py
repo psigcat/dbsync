@@ -1,4 +1,5 @@
-﻿import time
+﻿# -*- coding: utf-8 -*-
+import time
 import logging
 import threading
 from datetime import datetime
@@ -11,8 +12,10 @@ from utils import *  # @UnusedWildImport
 
 
 class DbTask():
+    
 
     def __init__(self):
+        ''' Constructor class '''
         self.logger = logging.getLogger('dbsync') 
         self.sensor_dates = {} 
         self.sensor_dates_logical = {} 
@@ -22,7 +25,9 @@ class DbTask():
         self.schema_to = "var"
         self.table_scada = self.schema_to+".scada_master"
     
+    
     def set_database_params(self, host, port, db, user, pwd, sgbd):
+        ''' Set Database parameters '''
         self.host = host
         self.port = port
         self.db = db
@@ -30,18 +35,23 @@ class DbTask():
         self.pwd = pwd
         self.sgbd = sgbd
         
+        
     def set_main_params(self, service_id, interval, sleep, default_start_tstamp, track_all_records):
+        ''' Set Main parameters '''
         self.service_id = service_id
         self.interval = interval
         self.sleep = sleep
         self.default_start_tstamp = default_start_tstamp
         self.track_all_records = track_all_records
+        
 
     def set_settings(self, settings):
         self.settings = settings
 
+
     def set_db_to(self, db):
         self.db_to = db
+        
        
     def run_threaded(self, *args):
         job_thread = threading.Thread(target=args[0], args=(args[1],args[2]))
@@ -49,8 +59,7 @@ class DbTask():
         
         
     def create_thread_conn(self):        
-               
-        # DB origin. Connect to local Database (by default MSSQL)
+        ''' Set origin Database. Connect to local Database (by default MSSQL) '''
         if self.sgbd.lower() == 'mssql':
             db_from = MsSqlDao()
         else:
@@ -61,8 +70,8 @@ class DbTask():
             return db_from 
 
 
-    # Get last row inserted for the selected scada and sensor
     def get_last_date(self, service, sensor, sensor_type=1):
+        ''' Get last row inserted for the selected scada and sensor '''
         
         sql = "SELECT MAX(last_date) FROM "+self.audit_table
         sql = sql + " WHERE service_id = "+str(service)+" AND sensor_id = "+str(sensor)   
@@ -80,10 +89,11 @@ class DbTask():
             return str(result)
                 
         
-    # Job task for scada model = 1            
+              
     def job_copy_data_1(self, sensor_id, sensor_type=1):
- 
-        # Get id of the last record inserted
+        ''' Job task for scada model = 1 '''
+        
+        # Get date of the last record inserted
         previous_date = self.sensor_dates[sensor_id]
         
         # Create a new connection to origin database for this thread
@@ -135,8 +145,8 @@ class DbTask():
         self.job_close_connection(db_from, sensor_id, total_inserted) 
         
                
-    # Job task for scada model = 2                
     def job_copy_data_2(self, sensor_id, sensor_type=1):
+        ''' Job task for scada model = 2 '''                
         
         # Define table and column names depending its sensor_type     
         if sensor_type == 1:
@@ -179,8 +189,8 @@ class DbTask():
         db_from.close()            
                          
                
-    # Job task for scada model = 3          
     def job_copy_data_3(self, sensor_id, sensor_type=1):
+        ''' Job task for scada model = 3 '''          
                   
         # Get table and column names from sensor table 
         sql = "SELECT table_name, column_name FROM "+self.schema_to+".sensor_"+str(self.service_id)+" WHERE id = "+str(sensor_id)
@@ -222,6 +232,7 @@ class DbTask():
 
 
     def job_process_rows(self, rows, sensor_id, sensor_type=1):
+        ''' Process returned rows '''
         
         total_found = len(rows)
         total_inserted = 0        
@@ -258,7 +269,8 @@ class DbTask():
             
             
     def job_post_process(self, list_insert, audit_table, sensor_id, sensor_type, first_date, last_date, total_found, total_inserted):
-
+        ''' Final step of the task. Insert into 'log_detail table and commit changes '''
+        
         # Complete query with inserted records
         query = ';\n'.join(list_insert)
         query = query+";\n"   
@@ -277,7 +289,8 @@ class DbTask():
                 
 
     def copy_data(self, min_id=-1, max_id=-1, limit=-1, delete_previous_data=False):
-
+        ''' Copy data from origin to destination Database '''
+        
         self.logger.info("{copy_data} Start process")       
         
         if delete_previous_data:
@@ -365,13 +378,13 @@ class DbTask():
 
 
     def create_sensor_job(self, job_function, sensor_id, sensor_type=1):
-        
+        ''' Set a new job for selected sensor '''
         jobObj = schedule.every(self.interval).minutes
         jobObj.do(self.run_threaded, job_function, sensor_id, sensor_type)
 
             
     def delete_previous_data(self):
-        
+        ''' Delete previous data from audit and scada table from selected service '''
         sql = "DELETE FROM "+self.audit_table+" WHERE service_id = "+str(self.service_id)
         self.db_to.execute_sql(sql)   
         sql = "DELETE FROM "+self.table_scada+" WHERE service_id = "+str(self.service_id)

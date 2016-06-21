@@ -77,7 +77,7 @@ def config_ini():
     
 
 def check_param_numeric(param):  
-    
+    ''' Check parameter. Return True if is numeric '''
     valid = True  
     if not isNumber(param):
         logger.warning("Parameter '"+param+"' must be numeric. Please check file dbsync.config")
@@ -86,7 +86,8 @@ def check_param_numeric(param):
         
     
 def connect_databases():
-
+    ''' Connect to Databases origin and destination '''
+    
     global db_from, db_dest, host, port, db, user, pwd, sgbd
 
     # DB origin. Connect to local Database (by default MsSQL)
@@ -129,7 +130,8 @@ def connect_databases():
 
 
 def set_task():
-
+    ''' Sets a new task '''
+    
     task = db_task.DbTask()
     task.set_database_params(host, port, db, user, pwd, sgbd)
     task.set_main_params(service_id, interval, sleep, default_start_tstamp, track_all_records)
@@ -142,3 +144,4 @@ def set_task():
     
 if __name__ == '__main__':
     main()
+    
