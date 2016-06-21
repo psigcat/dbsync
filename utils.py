@@ -27,10 +27,13 @@ def get_current_time():
     return aux    
 
 
-def date_to_tstamp(date_aux):
-    date_object = datetime.strptime(date_aux, "%Y-%m-%d %H:%M:%S")
-    date_aux = date_object.strftime("%Y%m%d%H%M%S")            
-    return date_aux
+def date_to_tstamp(date_aux, format_from="%Y-%m-%d %H:%M:%S", format_to="%Y%m%d%H%M%S"):
+    try:
+        date_object = datetime.strptime(date_aux, format_from)
+        aux = date_object.strftime(format_to) 
+    except Exception as e:   
+        return None        
+    return aux
     
     
 def set_logging(log_folder, log_name):
