@@ -311,7 +311,7 @@ class DbTask():
         # Set SQL and job function depending of its scada model   
         if model == 1:
             job_function = self.job_copy_data_1
-            sql = "SELECT id FROM var.sensor_"+str(self.service_id)
+            sql = "SELECT id FROM var.sensor_"+str(self.service_id)+" WHERE status_id = 'active'"
         elif model == 2:
             job_function = self.job_copy_data_2
             sql = "SELECT id FROM var.sensor_"+str(self.service_id)+" WHERE status_id = 'active'"
