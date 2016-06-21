@@ -1,16 +1,10 @@
 # -*- coding: utf-8 -*-
-import logging
-import psycopg2
 import psycopg2.extras
+from parent_dao import ParentDao
 
 
-class PgDao():
+class PgDao(ParentDao):
 
-    def __init__(self):
-        self.logger = logging.getLogger('dbsync')  
-
-    def get_host(self):
-        return self.host
     
     def init_db(self):
         try:
@@ -21,31 +15,7 @@ class PgDao():
             self.logger.warning('{pg_dao} Error %s' % e)
             status = False
         return status
-
-    def set_params(self, host, port, dbname, user, password):
-        self.host = host
-        self.port = port
-        self.dbname = dbname
-        self.user = user
-        self.password = password
-        self.conn_string = "host="+self.host+" port="+self.port+" dbname="+self.dbname+" user="+self.user+" password="+self.password
-
-    def query_sql(self, sql):
-        self.cursor.execute(sql)
-        rows = self.cursor.fetchall()              
-        return rows
     
-    def get_row(self, sql):
-        self.cursor.execute(sql)
-        row = self.cursor.fetchone()
-        return row
-
-    def execute_sql(self, sql):
-        self.cursor.execute(sql) 
-
-    def commit(self):
-        self.conn.commit()
-        
     def checkTable(self, schemaName, tableName):
         exists = True
         sql = "SELECT * FROM pg_tables WHERE schemaname = '"+schemaName+"' AND tablename = '"+tableName+"'"    

@@ -19,7 +19,7 @@ import db_task
 
 
 def main():
-
+    
     if not config_ini():
         return
     if not connect_databases():
@@ -30,7 +30,7 @@ def main():
 def config_ini():
     
     global logger, settings, service_id, interval, sleep, default_start_tstamp, track_all_records
-    global min_id, max_id, limit
+    global min_id, max_id, limit, delete_previous_data
     
     # Set daily log file
     app_name = 'dbsync'
@@ -47,7 +47,7 @@ def config_ini():
              
     default_values = {'port': '1433', 'sgbd': 'mssql', 'sgbd_to': 'pgsql',  
                       'track_all_records': '1', 'process_numeric_sensors': '1', 'process_logical_sensors': '1', 
-                      'min_id': '-1', 'max_id': '-1', 'limit': '-1', 'date_to': '20990101'}             
+                      'min_id': '-1', 'max_id': '-1', 'limit': '-1', 'date_to': '20990101', 'delete_previous_data': '0'}             
     settings = ConfigParser.ConfigParser(default_values)
     settings.read(setting_file)
     try:
@@ -59,6 +59,7 @@ def config_ini():
         min_id = settings.get('main', 'min_id')    
         max_id = settings.get('main', 'max_id')    
         limit = settings.get('main', 'limit')    
+        delete_previous_data = settings.get('main', 'delete_previous_data')    
         interval = float(interval)
         sleep = int(sleep)
         default_start_tstamp = int(default_start_tstamp)
@@ -66,6 +67,7 @@ def config_ini():
         min_id = int(min_id)
         max_id = int(max_id)
         limit = int(limit)
+        delete_previous_data = int(delete_previous_data)
     except ConfigParser.NoOptionError, e:
         logger.warning('{config_ini} %s' % e)
         return False
@@ -139,7 +141,7 @@ def set_task():
     task.set_settings(settings)
     
     # Execute main task
-    task.copy_data(min_id, max_id, limit)              
+    task.copy_data(min_id, max_id, limit, delete_previous_data)              
     
     
 if __name__ == '__main__':
